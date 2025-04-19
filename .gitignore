@@ -28,3 +28,4 @@ crash.log
 # Sensitive or debug logs
 *.log
 
+.terraform/
