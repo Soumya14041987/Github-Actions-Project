@@ -72,7 +72,7 @@ resource "aws_security_group" "githubactions-project-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }  
   ingress {
-    from_port   = 3000 
+    from_port   = 3000-11000
     to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
@@ -82,14 +82,7 @@ resource "aws_security_group" "githubactions-project-sg" {
     to_port     = 465
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  } 
-  ingress {
-    from_port   = 11000 
-    to_port     = 11000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
   }     
-
   egress {
     from_port   = 0
     to_port     = 0
