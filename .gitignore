@@ -7,6 +7,7 @@
 
 # Crash logs
 crash.log
+*.log
 
 # Ignore .tfvars files (often contain secrets)
 *.tfvars
