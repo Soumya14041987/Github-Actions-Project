@@ -27,5 +27,7 @@ crash.log
 
 # Sensitive or debug logs
 *.log
+*.bak
+*.backup
 
 .terraform/
