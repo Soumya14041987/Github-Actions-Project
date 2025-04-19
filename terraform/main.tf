@@ -105,7 +105,7 @@ resource "aws_instance" "githubactions-project" {
   subnet_id                = aws_subnet.githubactions-project-subnet.id
   vpc_security_group_ids   = [aws_security_group.githubactions-project-sg.id]
   associate_public_ip_address = true
-  
+  count = 2
 
   tags = {
     Name = "Githubactions-project"
