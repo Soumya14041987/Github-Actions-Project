@@ -1,33 +1,29 @@
-HELP.md
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Local .terraform directories
+.terraform/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# Terraform state files
+*.tfstate
+*.tfstate.*
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
+# Crash logs
+crash.log
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Ignore .tfvars files (often contain secrets)
+*.tfvars
+*.tfvars.json
 
-### VS Code ###
-.vscode/
+# Terraform plan files
+*.tfplan
+
+# Lock file (machine-specific)
+.terraform.lock.hcl
+
+# Ignore override files
+*.override.tf
+*.override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Sensitive or debug logs
+*.log
+
