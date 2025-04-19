@@ -40,13 +40,28 @@ jobs:
     - name: Trivy FS Scan
       run: trivy fs . --format table -o fs-report.json
 
-    - name: Install Gitleaks
+    - name: Install Gitleaks (reliable way)
       run: |
-        VERSION="v8.18.1"
-        curl -L -o gitleaks https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/gitleaks_${VERSION#v}_linux_x64
-        chmod +x gitleaks
-        sudo mv gitleaks /usr/local/bin/gitleaks
-        gitleaks version
+         VERSION="v8.18.1"
+          ARCH="linux_x64"
+          FILE="gitleaks_${VERSION#v}_${ARCH}"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/${FILE}"
 
-    - name: Gitleaks Code Scan
-      run: gitleaks detect --source . -r gitleaks-report.json -f json
+          echo "Downloading from: $URL"
+          curl -L -o gitleaks "$URL"
+
+          echo "Validating binary size..."
+          ACTUAL_SIZE=$(wc -c < gitleaks)
+          if [ "$ACTUAL_SIZE" -lt 100000 ]; then
+          echo "❌ Gitleaks download failed or corrupt. File size: $ACTUAL_SIZE bytes"
+          echo "File content:"
+          cat gitleaks
+          exit 1
+          fi
+
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
+          echo "✅ Gitleaks installed:"
+          gitleaks version
+
