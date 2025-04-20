@@ -126,5 +126,5 @@ jobs:
       with:
         context: .
         push: true
-        tags: adijaiswal/bankapp:latest
+        tags: dockerworld/bankapp:latest # pushes this to your own repo
         file: ./Dockerfile
