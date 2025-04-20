@@ -6,12 +6,10 @@ variable "region" {
 
 
 variable "instance_type" {
-    type = map(string)
-    default = {
-        "t2.medium" = "t2.medium"
-        "t2.large" = "t2.large"
+    description = "The instance type to use for the EC2 instance"
+    default = "t2.medium"
         
-    }
+    
 }
 variable "ami" {
   description = "The AMI to use for the EC2 instance"
