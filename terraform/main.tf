@@ -97,17 +97,40 @@ resource "aws_security_group" "githubactions-project-sg" {
   }
 }
 
-resource "aws_instance" "githubactions-project" {
+resource "aws_instance" "Sonarqube-medium" {
   ami                      = var.ami
-  instance_type            = var.instance_type
+  instance_type            = var.instance_type["t2.medium"]
   key_name                 = var.aws_key_name
   subnet_id                = aws_subnet.githubactions-project-subnet.id
   vpc_security_group_ids   = [aws_security_group.githubactions-project-sg.id]
   associate_public_ip_address = true
-  count = 2
+
+
+root_block_device {
+    volume_size = 30
+    volume_type = "gp2"
+  }
 
   tags = {
-    Name = "Githubactions-project"
+    Name = "Sonarqube-Instance"
+  }
+}
+resource "aws_instance" "githubactions-project-large" {
+  ami                      = var.ami
+  instance_type            = var.instance_type["t2.large"]
+  key_name                 = var.aws_key_name
+  subnet_id                = aws_subnet.githubactions-project-subnet.id
+  vpc_security_group_ids   = [aws_security_group.githubactions-project-sg.id]
+  associate_public_ip_address = true
+
+
+root_block_device {
+    volume_size = 30
+    volume_type = "gp2"
+  }
+
+  tags = {
+    Name = "Githubactions-runner"
   }
 
 }
