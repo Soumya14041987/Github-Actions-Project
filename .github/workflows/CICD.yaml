@@ -1,30 +1,38 @@
+# Name of the GitHub Actions workflow
 name: CICD Pipeline
 
+# Trigger configuration - workflow runs on push to main branch
 on:
   push:
     branches: [ "main" ]
 
 jobs:
+  # Job 1: Compile the Java application
   compile:
     runs-on: self-hosted
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: maven
+        cache: maven    # Enables caching of Maven dependencies
+    
     - name: Build with Maven
       run: mvn compile
 
+  # Job 2: Security scanning
   security-check:
     runs-on: self-hosted
-    needs: compile
-
+    needs: compile    # This job runs after successful compilation
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Install and run Trivy scanner
     - name: Trivy Installation
       run: |
         sudo apt-get install -y wget apt-transport-https gnupg lsb-release
@@ -33,129 +41,153 @@ jobs:
         sudo apt-get update -y
         sudo apt-get install -y trivy
 
-    - name: Trivy FS Scan
+    - name: Trivy Filesystem Scan
       run: trivy fs --format table -o fs-report.json .
 
+    # Install and run Gitleaks for secrets scanning
     - name: Gitleaks Installation
       run: |
          GITLEAKS_VERSION=$(curl -s "https://api.github.com/repos/gitleaks/gitleaks/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+')
          wget -qO gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz   
          sudo tar xf gitleaks.tar.gz -C /usr/local/bin gitleaks
 
-    - name: Gitleaks version check
-      run: gitleaks version
-
     - name: Gitleaks Scan
       run: gitleaks detect source . -r gitleaks-report.json -f json
 
+  # Job 3: Run unit tests
   test:
     runs-on: self-hosted
-    needs: security-check
+    needs: security-check    # Runs after security checks pass
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Unit Test Cases
+    
+    - name: Run Unit Tests
       run: mvn test
 
+  # Job 4: Build JAR and run SonarQube analysis
   build_project_and_sonar_scan:
     runs-on: self-hosted
-    needs: test
+    needs: test    # Runs after tests pass
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
+    
+    # Build and save JAR file
     - name: Build Project
       run: mvn package
+    
     - name: Upload JAR artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-jar
         path: target/*.jar
 
-    - uses: actions/checkout@v4
+    # SonarQube analysis
+    - name: Checkout for SonarQube
+      uses: actions/checkout@v4
       with:
-        # Disabling shallow clones is recommended for improving the relevancy of reporting
-        fetch-depth: 0
+        fetch-depth: 0    # Full git history for SonarQube analysis
+    
     - name: SonarQube Scan
-      uses: SonarSource/sonarqube-scan-action@v5.0.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
+      uses: SonarSource/sonarqube-scan-action@v5.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-
-    - name: SonarQube Quality Gate check
-      id: sonarqube-quality-gate-check
-      continue-on-error: true
+    
+    - name: SonarQube Quality Gate
       uses: sonarsource/sonarqube-quality-gate-action@master
       with:
         pollingTimeoutSec: 600
       env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      continue-on-error: true
 
+  # Job 5: Build and push Docker image
   buils_docker_image_and_push:
     runs-on: self-hosted
     needs: build_project_and_sonar_scan
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    # Get the JAR file from artifacts
     - name: Download JAR artifact
       uses: actions/download-artifact@v4
       with:
         name: app-jar
-        path: app  # this will download JAR to ./app folder
-
+        path: app
+    
+    # Docker setup and build
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
+    
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+    
     - name: Build and Push Docker image
       uses: docker/build-push-action@v6
       with:
         context: .
         push: true
-        tags: dockerworld1987/bankapp:latest # pushes this to your own repo
+        tags: dockerworld1987/bankapp:latest
         file: ./Dockerfile
 
+  # Job 6: Deploy to Kubernetes (EKS)
   k8s_deploy:
-        runs-on: self-hosted
-        needs: buils_docker_image_and_push
-        steps:
-          - name: Checkout Code
-            uses: actions/checkout@v4
-          - name: Install AWS CLI
-            run: |
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install --update
-          - name: Configure AWS credentials
-            uses: aws-actions/configure-aws-credentials@v2
-            with:
-              aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-              aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              aws-region: ap-south-1
-          - name: Set up kubectl
-            uses: azure/setup-kubectl@v3
-            with:
-              version: latest
-          - name: Configure kubeconfig
-            run: |
-              mkdir -p $HOME/.kube
-              echo "${{ secrets.EKS_KUBECONFIG }}" > $HOME/.kube/config
-          - name: Deploy to EKS
-            run: |
-              kubectl apply -f ds.yml
+    runs-on: self-hosted
+    needs: buils_docker_image_and_push    # Runs after Docker image is pushed
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    # AWS CLI setup
+    - name: Install AWS CLI
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install --update
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-south-1
+    
+    # Kubernetes deployment
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: latest
+    
+    - name: Configure kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.EKS_KUBECONFIG }}" > $HOME/.kube/config
+    
+    - name: Deploy to EKS
+      run: |
+        kubectl apply -f ds.yml
         
-              
